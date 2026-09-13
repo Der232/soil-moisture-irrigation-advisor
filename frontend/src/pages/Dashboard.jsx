@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import api from '../api/client';
+import { useEffect, useState, useCallback } from 'react';
+import { dataSource } from '../data/dataSource';
 import GardenScene3D from '../three/GardenScene3D';
 import StatusCards from '../components/StatusCards';
 import MoistureChart from '../components/MoistureChart';
 import AttentionAlerts from '../components/AttentionAlerts';
+import ModeBanner from '../components/ModeBanner';
 
 export default function Dashboard() {
   const [zones, setZones] = useState([]);
@@ -12,71 +13,74 @@ export default function Dashboard() {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
 
-  // Load zones once
-  useEffect(() => {
-    loadZones();
-  }, []);
-
-  function loadZones() {
-    api
-      .get('/zones')
-      .then((res) => {
-        setZones(res.data);
-        if (res.data.length > 0 && !selectedZoneId) setSelectedZoneId(res.data[0].id);
+  const loadZones = useCallback(() => {
+    dataSource
+      .getZones()
+      .then((data) => {
+        setZones(data);
+        if (data.length > 0 && !selectedZoneId) setSelectedZoneId(data[0].id);
         setError('');
       })
-      .catch(() => setError('Could not load zones. Is the backend running on the expected port?'));
-  }
+      .catch(() => setError('Could not load zones.'));
+  }, [selectedZoneId]);
 
-  // Poll latest readings periodically (simulates a live feed)
   useEffect(() => {
-    function fetchLatest() {
-      api
-        .get('/readings/latest')
-        .then((res) => {
-          const map = {};
-          res.data.forEach((r) => {
-            map[r.zone_id] = r;
-          });
-          setReadingsByZone(map);
-          setError('');
-        })
-        .catch(() =>
-          setError('Could not reach the backend for live readings. Check that the server and simulator are running.')
-        );
-    }
+    loadZones();
+  }, [loadZones]);
 
-    fetchLatest();
-    const interval = setInterval(fetchLatest, 4000);
-    return () => clearInterval(interval);
+  const fetchLatest = useCallback(() => {
+    dataSource
+      .getLatestReadings()
+      .then((data) => {
+        const map = {};
+        data.forEach((r) => {
+          map[r.zone_id] = r;
+        });
+        setReadingsByZone(map);
+        setError('');
+      })
+      .catch(() => {});
   }, []);
 
-  // Load history for the selected zone whenever it changes or new data comes in
+  useEffect(() => {
+    fetchLatest();
+    const interval = setInterval(fetchLatest, 4000);
+
+    const unsub = dataSource.subscribe(() => {
+      fetchLatest();
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsub();
+    };
+  }, [fetchLatest]);
+
   useEffect(() => {
     if (!selectedZoneId) return;
-    api
-      .get(`/readings/history/${selectedZoneId}`)
-      .then((res) => setHistory(res.data))
+    dataSource
+      .getHistory(selectedZoneId)
+      .then((data) => setHistory(data))
       .catch(() => {});
   }, [selectedZoneId, readingsByZone]);
 
-  // Optimistically reflect a manual watering event before the next poll confirms it
   function handleWatered(zoneId) {
-    setReadingsByZone((prev) => ({
-      ...prev,
-      [zoneId]: {
-        ...(prev[zoneId] || {}),
-        zone_id: zoneId,
-        moisture_percent: 70,
-        recorded_at: new Date().toISOString(),
-      },
-    }));
+    dataSource.manualWater(zoneId).then(() => {
+      fetchLatest();
+    });
+  }
+
+  function handleRetry() {
+    dataSource.setMode('unknown');
+    loadZones();
+    fetchLatest();
   }
 
   return (
     <div className="p-6 h-screen flex flex-col">
       <h1 className="text-2xl font-semibold mb-1">Soil Moisture & Irrigation Advisor</h1>
-      <p className="text-sm text-gray-500 mb-4">Live campus garden overview (simulated sensor feed)</p>
+      <p className="text-sm text-gray-500 mb-3">Live campus garden overview (simulated sensor feed)</p>
+      <ModeBanner onRetry={handleRetry} />
       {error && (
         <div className="bg-red-100 border border-red-300 text-red-800 text-sm rounded-lg p-3 mb-4">
           {error}
@@ -85,12 +89,10 @@ export default function Dashboard() {
       <AttentionAlerts zones={zones} readingsByZone={readingsByZone} />
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
-        {/* 3D scene */}
         <div className="min-h-[320px]">
           <GardenScene3D zones={zones} readingsByZone={readingsByZone} />
         </div>
 
-        {/* Dashboard panel */}
         <div className="flex flex-col gap-4 overflow-y-auto">
           <StatusCards zones={zones} readingsByZone={readingsByZone} onWatered={handleWatered} onDeleted={loadZones} />
 

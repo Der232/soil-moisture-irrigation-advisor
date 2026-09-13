@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import api from '../api/client';
+import { useEffect, useState, useCallback } from 'react';
+import { dataSource } from '../data/dataSource';
+import ModeBanner from '../components/ModeBanner';
 
 function triggerBadge(triggeredBy) {
   return triggeredBy === 'manual'
@@ -11,23 +12,40 @@ export default function IrrigationLog() {
   const [events, setEvents] = useState([]);
   const [error, setError] = useState('');
 
-  function loadEvents() {
-    api
-      .get('/irrigation-events')
-      .then((res) => setEvents(res.data))
-      .catch(() => setError('Could not load irrigation history. Is the backend running?'));
-  }
+  const loadEvents = useCallback(() => {
+    dataSource
+      .getEvents()
+      .then((data) => {
+        setEvents(data);
+        setError('');
+      })
+      .catch(() => setError('Could not load irrigation history.'));
+  }, []);
 
   useEffect(() => {
     loadEvents();
     const interval = setInterval(loadEvents, 6000);
-    return () => clearInterval(interval);
-  }, []);
+
+    const unsub = dataSource.subscribe(() => {
+      loadEvents();
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsub();
+    };
+  }, [loadEvents]);
+
+  function handleRetry() {
+    dataSource.setMode('unknown');
+    loadEvents();
+  }
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <h1 className="text-2xl font-semibold mb-1">Irrigation Event Log</h1>
-      <p className="text-sm text-gray-500 mb-4">History of automatic and manual watering across all zones.</p>
+      <p className="text-sm text-gray-500 mb-3">History of automatic and manual watering across all zones.</p>
+      <ModeBanner onRetry={handleRetry} />
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
 
       <table className="w-full text-sm border">

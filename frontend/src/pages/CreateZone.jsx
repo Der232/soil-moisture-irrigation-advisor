@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../api/client';
+import { dataSource } from '../data/dataSource';
 
 export default function CreateZone({ onCreated }) {
   const [form, setForm] = useState({ name: '', locationNote: '', gridX: 0, gridY: 0, moistureThreshold: 30 });
@@ -23,7 +23,7 @@ export default function CreateZone({ onCreated }) {
 
     setSubmitting(true);
     try {
-      await api.post('/zones', {
+      await dataSource.createZone({
         name: form.name,
         locationNote: form.locationNote,
         gridX: Number(form.gridX),

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import api from '../api/client';
+import { dataSource } from '../data/dataSource';
 
 function statusColor(moisture, threshold) {
   if (moisture < threshold) return 'bg-red-100 border-red-400 text-red-800';
@@ -14,10 +14,10 @@ export default function StatusCards({ zones, readingsByZone, onWatered, onDelete
   async function handleWaterNow(zoneId) {
     setWateringZoneId(zoneId);
     try {
-      await api.post('/irrigation-events/manual', { zoneId });
+      await dataSource.manualWater(zoneId);
       if (onWatered) onWatered(zoneId);
     } catch (err) {
-      // Silently ignore for now; the next poll will reflect the real state either way
+      // next poll will reflect the real state
     } finally {
       setWateringZoneId(null);
     }
@@ -27,10 +27,10 @@ export default function StatusCards({ zones, readingsByZone, onWatered, onDelete
     if (!window.confirm(`Remove "${zoneName}"? This cannot be undone.`)) return;
     setDeletingZoneId(zoneId);
     try {
-      await api.delete(`/zones/${zoneId}`);
+      await dataSource.deleteZone(zoneId);
       if (onDeleted) onDeleted();
     } catch (err) {
-      // ignore; zone stays visible if deletion failed
+      // zone stays visible if deletion failed
     } finally {
       setDeletingZoneId(null);
     }

@@ -2,7 +2,9 @@
 
 A web-based system that helps campus grounds staff and gardening clubs keep plants healthy without guesswork. Low-cost soil moisture sensors placed in garden beds feed the system, which displays live moisture levels, tracks trends over time, and gives clear watering recommendations per garden zone — including a 3D visualization of the garden that color-codes each plot by moisture level.
 
-The project also includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: raw ADC readings, calibration, drying physics, and rule-based auto-watering with per-zone thresholds and cooldown.
+The project includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: raw ADC readings, calibration, drying physics, and rule-based auto-watering with per-zone thresholds and cooldown. It also includes a **3D hardware demo page** that renders a realistic model of the complete physical setup — ESP32 board, capacitive sensor, relay, pump, reservoir, plant pot, and wiring — with animated water flow and soil that changes color as moisture rises.
+
+The Dashboard, Irrigation Log, and zone management pages all work **without a backend** too: they try the real API first, then silently fall back to the built-in simulation, so you never see a "could not reach the backend" error during a demo.
 
 ## Group Members
 
@@ -24,7 +26,8 @@ Section 1 · Computer Science and Engineering (CSE), except Dereje Bogale (Softw
 - React (Vite)
 - Tailwind CSS
 - Recharts (moisture history charts)
-- Three.js (3D garden scene)
+- Three.js (3D garden scene + 3D hardware rig)
+- Offline data layer that falls back to the browser simulation when the backend is not running
 
 **Backend**
 - Node.js + Express.js
@@ -53,15 +56,44 @@ soil-moisture-irrigation-advisor/
 └── frontend/
     ├── src/
     │   ├── api/           # Axios client
-    │   ├── components/    # StatusCards, MoistureChart
-    │   ├── pages/         # Simulation, Dashboard, CreateZone, IrrigationLog, About
+    │   ├── components/    # StatusCards, MoistureChart, ModeBanner
+    │   ├── data/          # Offline data layer (simStore + dataSource)
+    │   ├── pages/         # Simulation, HardwareDemo, Dashboard, CreateZone, IrrigationLog, About
     │   ├── simulation/    # Browser-based irrigation engine (no backend needed)
-    │   ├── three/         # GardenScene3D (Three.js)
+    │   ├── three/         # GardenScene3D + HardwareRig3D (Three.js)
     │   └── main.jsx
     └── index.html
 ```
 
 ## Getting Started
+
+### Step-by-step: Clone and run on your computer
+
+1. **Install Node.js** — Download the LTS version from https://nodejs.org and install it. To verify, open a terminal and run `node --version` — you should see a version number like `v20.x.x` or higher.
+
+2. **Download the project** — Go to https://github.com/IamMachir/soil-moisture-irrigation-advisor and click the green **Code** button, then **Download ZIP**. Extract the ZIP file. Or with Git installed, run:
+   ```bash
+   git clone https://github.com/IamMachir/soil-moisture-irrigation-advisor.git
+   ```
+
+3. **Go to the frontend folder** — Open a terminal and navigate into the `frontend` folder inside the project:
+   ```bash
+   cd soil-moisture-irrigation-advisor/frontend
+   ```
+
+4. **Install dependencies** — This downloads the libraries the app needs. Wait for it to finish:
+   ```bash
+   npm install
+   ```
+
+5. **Start the app** — This launches a local development server:
+   ```bash
+   npm run dev
+   ```
+
+6. **Open the app** — The terminal will show a local URL like `http://localhost:5174`. Open that URL in your browser. The **Simulation** tab loads automatically as the first page.
+
+No backend, database, or hardware is needed — everything runs in the browser. The Dashboard, Irrigation Log, and Add Zone pages also work without a backend by falling back to the built-in simulation.
 
 ### Option 1: Run the browser simulation (no backend needed)
 
@@ -73,7 +105,7 @@ npm install
 npm run dev
 ```
 
-Open the app and click the **Simulation** tab. You'll see four garden zones with live moisture readings that dry out over time and auto-water when they cross their threshold. You can pause/resume, add zones, manually water, and watch the event log fill up.
+Open the app and click the **Simulation** tab. You'll see four garden zones with live moisture readings that dry out over time and auto-water when they cross their threshold. You can pause/resume, add zones, manually water, and watch the event log fill up. Click the **Hardware Demo** tab to see the 3D hardware rig with all components labeled.
 
 ### Option 2: Run the full-stack system
 
@@ -311,10 +343,12 @@ The Arduino Uno's ADC is 10-bit (0–1023), not the ESP32's 12-bit (0–4095). C
 - [x] Garden zone schema + seed data
 - [x] Sensor reading ingestion + rule-based watering advisor
 - [x] Browser-based irrigation simulation (no backend or database required)
+- [x] Offline data layer — Dashboard and Irrigation Log fall back to simulation when backend is down
+- [x] 3D hardware demo rig with all physical components (ESP32, sensor, relay, pump, reservoir, plant pot)
 - [x] Node-based simulated sensor data generator with per-zone variance + day/night cycle
 - [x] Dashboard: live status cards + moisture history chart
 - [x] 3D garden scene with moisture color-coding, orbit controls, and hover tooltips
-- [x] Manual "water this zone" trigger from the dashboard and simulation
+- [x] Manual "water this zone" trigger from the dashboard, simulation, and hardware demo
 - [x] Historical irrigation event log view
 - [x] Server-side input validation on all write endpoints
 - [x] Seed script for historical demo data
