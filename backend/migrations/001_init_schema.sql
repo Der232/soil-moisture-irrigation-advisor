@@ -1,4 +1,10 @@
 -- Low-cost Soil Moisture & Irrigation Advisor - Initial Schema
+-- Creates the database and all tables needed by the backend.
+
+CREATE DATABASE IF NOT EXISTS soil_irrigation
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE soil_irrigation;
 
 CREATE TABLE IF NOT EXISTS garden_zones (
   id INT AUTO_INCREMENT PRIMARY KEY,

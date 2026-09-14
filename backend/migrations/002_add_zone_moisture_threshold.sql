@@ -3,5 +3,7 @@
 -- the previous global default, so behavior is unchanged until a zone's
 -- threshold is explicitly customized.
 
+USE soil_irrigation;
+
 ALTER TABLE garden_zones
   ADD COLUMN moisture_threshold DECIMAL(5,2) NOT NULL DEFAULT 30.00;

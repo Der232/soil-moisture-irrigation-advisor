@@ -67,92 +67,237 @@ soil-moisture-irrigation-advisor/
 
 ## Getting Started
 
-### Step-by-step: Clone and run on your computer
+### Quick Start: Browser simulation only (no database needed)
 
-1. **Install Node.js** — Download the LTS version from https://nodejs.org and install it. To verify, open a terminal and run `node --version` — you should see a version number like `v20.x.x` or higher.
+The simulation, hardware demo, and dashboard all work in the browser without any backend or database. This is the fastest way to see the project working.
 
-2. **Download the project** — Go to https://github.com/IamMachir/soil-moisture-irrigation-advisor and click the green **Code** button, then **Download ZIP**. Extract the ZIP file. Or with Git installed, run:
-   ```bash
-   git clone https://github.com/IamMachir/soil-moisture-irrigation-advisor.git
-   ```
+**Step 1 — Install Node.js**
 
-3. **Go to the frontend folder** — Open a terminal and navigate into the `frontend` folder inside the project:
-   ```bash
-   cd soil-moisture-irrigation-advisor/frontend
-   ```
+Download the LTS version from https://nodejs.org and install it. To verify it worked, open a terminal (Command Prompt or PowerShell on Windows, Terminal on Mac) and run:
 
-4. **Install dependencies** — This downloads the libraries the app needs. Wait for it to finish:
-   ```bash
-   npm install
-   ```
+```
+node --version
+```
 
-5. **Start the app** — This launches a local development server:
-   ```bash
-   npm run dev
-   ```
+You should see a version number like `v20.x.x` or higher. This command just checks that Node.js is installed and working — it doesn't change anything.
 
-6. **Open the app** — The terminal will show a local URL like `http://localhost:5174`. Open that URL in your browser. The **Simulation** tab loads automatically as the first page.
+**Step 2 — Download the project**
 
-No backend, database, or hardware is needed — everything runs in the browser. The Dashboard, Irrigation Log, and Add Zone pages also work without a backend by falling back to the built-in simulation.
+Go to https://github.com/IamMachir/soil-moisture-irrigation-advisor and click the green **Code** button, then **Download ZIP**. Extract the ZIP file to a folder on your computer.
 
-### Option 1: Run the browser simulation (no backend needed)
+Or, if you have Git installed, open a terminal and run:
 
-The simulation page runs entirely in the browser — no database, no server.
+```
+git clone https://github.com/IamMachir/soil-moisture-irrigation-advisor.git
+```
 
-```bash
-cd frontend
+This downloads a copy of the project to your current folder.
+
+**Step 3 — Open a terminal in the frontend folder**
+
+Navigate to the `frontend` folder inside the project. If you used `git clone`, the folder is called `soil-moisture-irrigation-advisor`. If you downloaded the ZIP, it may be called `soil-moisture-irrigation-advisor-main` — rename it if you like, then go inside and find the `frontend` folder.
+
+```
+cd soil-moisture-irrigation-advisor/frontend
+```
+
+This command means "change directory" — it moves you into the frontend folder so the next commands run there.
+
+**Step 4 — Install the libraries the app needs**
+
+```
 npm install
+```
+
+This reads the `package.json` file and downloads all the JavaScript libraries the app depends on (React, Three.js, Recharts, Tailwind CSS, etc.). This takes about 15–30 seconds. You only need to do this once.
+
+**Step 5 — Start the app**
+
+```
 npm run dev
 ```
 
-Open the app and click the **Simulation** tab. You'll see four garden zones with live moisture readings that dry out over time and auto-water when they cross their threshold. You can pause/resume, add zones, manually water, and watch the event log fill up. Click the **Hardware Demo** tab to see the 3D hardware rig with all components labeled.
+This starts a local development server. The terminal will show a URL like `http://localhost:5174`. **Keep this terminal open** — closing it stops the app.
 
-### Option 2: Run the full-stack system
+**Step 6 — Open the app in your browser**
 
-#### Backend
+Open the URL shown in the terminal (e.g. `http://localhost:5174`) in any browser. The **Simulation** tab loads automatically. Click the tabs at the top to explore:
+- **Simulation** — live garden zones with moisture readings that dry out and auto-water
+- **Hardware Demo** — 3D model of the physical setup (ESP32, sensor, relay, pump, plant)
+- **Dashboard** — live status cards and moisture charts (falls back to simulation if no backend)
+- **Irrigation Log** — watering event history (falls back to simulation if no backend)
 
-```bash
-cd backend
-cp .env.example .env   # fill in your MySQL credentials
+---
+
+### Full-Stack Setup: Backend + Frontend + MySQL Database
+
+This runs the complete system with a real database, a real backend API, and a simulated sensor that feeds it data. You need MySQL installed and running on your computer.
+
+#### Step 1 — Install MySQL
+
+Download MySQL Community Server from https://dev.mysql.com/downloads/ and install it. During installation, you'll set a root password — remember it, you'll need it below. To verify MySQL is running, open a terminal and run:
+
+```
+mysql --version
+```
+
+You should see a version number. This just confirms MySQL is installed.
+
+#### Step 2 — Download the project (if not already done)
+
+See Step 2 in the Quick Start section above.
+
+#### Step 3 — Set up the backend configuration file
+
+Open a terminal in the `backend` folder:
+
+```
+cd soil-moisture-irrigation-advisor/backend
+```
+
+Copy the example configuration file:
+
+```
+cp .env.example .env
+```
+
+This creates a file called `.env` from the template. Now open the `.env` file in a text editor (Notepad, VS Code, etc.) and fill in your MySQL password. The file looks like this:
+
+```
+PORT=5001
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_mysql_password_here
+DB_NAME=soil_irrigation
+MOISTURE_THRESHOLD=30
+IRRIGATION_COOLDOWN_MINUTES=10
+SIMULATOR_INTERVAL_MS=5000
+```
+
+Replace `your_mysql_password_here` with the actual password you set during MySQL installation. Save the file.
+
+#### Step 4 — Install backend libraries
+
+Still in the same terminal, in the `backend` folder:
+
+```
 npm install
+```
+
+This downloads the backend's libraries (Express, MySQL driver, etc.). Takes about 15 seconds.
+
+#### Step 5 — Create the database and tables
+
+Still in the same terminal, in the `backend` folder:
+
+```
 mysql -u root -p < migrations/001_init_schema.sql
+```
+
+This command means: "Open MySQL as the root user (-u root), ask me for my password (-p), and feed it the SQL file that creates the database and tables." Type your MySQL password when prompted. You won't see characters as you type — this is normal. Press Enter after typing it.
+
+This creates a database called `soil_irrigation` with three tables (garden zones, sensor readings, irrigation events) and inserts four starter garden zones.
+
+Then run the second migration to add the per-zone moisture threshold column:
+
+```
+mysql -u root -p < migrations/002_add_zone_moisture_threshold.sql
+```
+
+Enter your password again. This adds a `moisture_threshold` column to the garden zones table so each zone can have its own watering threshold.
+
+#### Step 6 — Start the backend server
+
+Still in the same terminal, in the `backend` folder:
+
+```
 npm run dev
 ```
 
-#### Run the Node-based sensor simulator (separate terminal)
+This starts the backend API server. You'll see a message like "Server running on port 5001". **Keep this terminal open** — the backend needs to stay running.
 
-```bash
-cd backend
+#### Step 7 — Start the sensor simulator
+
+**Open a NEW terminal window** (the first one is busy running the backend). In this new terminal, go to the backend folder:
+
+```
+cd soil-moisture-irrigation-advisor/backend
+```
+
+Then run:
+
+```
 npm run simulate
 ```
 
-#### Seed historical data (optional but recommended for demos)
+This starts a simulated sensor that generates realistic moisture readings every 5 seconds and sends them to the backend, just like real ESP32 hardware would. You'll see readings appear in the terminal. **Keep this terminal open too.**
 
-```bash
-cd backend
+#### Step 8 — Seed historical data (optional but recommended)
+
+**Open a THIRD terminal window.** Go to the backend folder:
+
+```
+cd soil-moisture-irrigation-advisor/backend
+```
+
+Then run:
+
+```
 npm run seed
 ```
 
-This backfills 48 hours of realistic moisture history (with a day/night cycle and matching irrigation events for low-moisture points) per zone, so the dashboard's chart and irrigation log aren't empty the moment you open it.
+This backfills 48 hours of realistic moisture history (with a day/night cycle and matching irrigation events for low-moisture points) per zone, so the dashboard's chart and irrigation log aren't empty the moment you open it. After it finishes, you can close this terminal — it's a one-time operation.
 
-#### Run tests
+#### Step 9 — Start the frontend
 
-```bash
-cd backend
-npm test
+**Open a FOURTH terminal window.** Go to the frontend folder:
+
+```
+cd soil-moisture-irrigation-advisor/frontend
 ```
 
-Covers input validation rules and the rule-based irrigation advisor — including per-zone threshold behavior — using Jest with mocked models, no database connection required.
+Install the frontend libraries (only needed once):
 
-#### Frontend
-
-```bash
-cd frontend
+```
 npm install
+```
+
+Then start the frontend:
+
+```
 npm run dev
 ```
 
-The frontend expects the backend at `http://localhost:5001/api` (configurable via `VITE_API_URL`).
+This starts the frontend development server. **Keep this terminal open.**
+
+#### Step 10 — Open the app
+
+Open the URL shown in the terminal (e.g. `http://localhost:5174`) in your browser. Now the Dashboard, Irrigation Log, and Create Zone pages will connect to the real backend with the real database, and you'll see live data from the simulated sensor.
+
+#### Summary of terminals
+
+You should have these terminals open at the same time:
+
+| Terminal | Folder | Command | What it does |
+|---|---|---|---|
+| 1 | `backend` | `npm run dev` | Runs the API server — must stay open |
+| 2 | `backend` | `npm run simulate` | Sends simulated sensor readings — must stay open |
+| 3 | (closed) | `npm run seed` | One-time data backfill — can close after it finishes |
+| 4 | `frontend` | `npm run dev` | Runs the web app — must stay open |
+
+If you only want to see the simulation and hardware demo (no database), you only need Terminal 4.
+
+#### Run tests
+
+**Open a terminal** in the `backend` folder:
+
+```
+cd soil-moisture-irrigation-advisor/backend
+npm test
+```
+
+This runs 18 automated tests covering input validation and the irrigation advisor logic. No database connection is needed — tests use mocked data.
 
 ## How It Works
 
