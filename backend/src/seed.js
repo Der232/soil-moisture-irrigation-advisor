@@ -79,6 +79,12 @@ async function seed() {
 }
 
 seed().catch((err) => {
-  console.error('Seeding failed:', err);
+  if (err.code === 'ER_ACCESS_DENIED_ERROR') {
+    console.error('Seeding failed: Cannot connect to MySQL.');
+    console.error('Check your .env file — make sure DB_PASSWORD is set to your MySQL root password.');
+    console.error('Current settings: DB_USER=' + (process.env.DB_USER || 'root') + ', DB_NAME=' + (process.env.DB_NAME || 'soil_irrigation'));
+  } else {
+    console.error('Seeding failed:', err);
+  }
   process.exit(1);
 });

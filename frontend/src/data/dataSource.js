@@ -10,8 +10,11 @@ import { simStore } from './simStore';
 
 let mode = 'unknown'; // 'live' | 'simulation' | 'unknown'
 
-function isNetworkError(err) {
-  return !err.response || err.code === 'ECONNABORTED' || err.message === 'Network Error';
+function shouldFallbackToSim(err) {
+  if (!err.response) return true;
+  if (err.code === 'ECONNABORTED' || err.message === 'Network Error') return true;
+  if (err.response.status >= 500) return true;
+  return false;
 }
 
 export const dataSource = {
@@ -29,7 +32,7 @@ export const dataSource = {
       mode = 'live';
       return res.data;
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         return simStore.getZones();
       }
@@ -43,7 +46,7 @@ export const dataSource = {
       mode = 'live';
       return res.data;
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         return simStore.getLatestReadings();
       }
@@ -57,7 +60,7 @@ export const dataSource = {
       mode = 'live';
       return res.data;
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         return simStore.getHistory(zoneId);
       }
@@ -71,7 +74,7 @@ export const dataSource = {
       mode = 'live';
       return res.data;
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         return simStore.getEvents();
       }
@@ -85,7 +88,7 @@ export const dataSource = {
       mode = 'live';
       return res.data;
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         return simStore.addZone(data);
       }
@@ -98,7 +101,7 @@ export const dataSource = {
       await api.delete(`/zones/${zoneId}`);
       mode = 'live';
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         simStore.deleteZone(zoneId);
         return;
@@ -112,7 +115,7 @@ export const dataSource = {
       await api.post('/irrigation-events/manual', { zoneId });
       mode = 'live';
     } catch (err) {
-      if (isNetworkError(err)) {
+      if (shouldFallbackToSim(err)) {
         mode = 'simulation';
         simStore.manualWater(zoneId);
         return;

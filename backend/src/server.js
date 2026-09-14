@@ -20,4 +20,15 @@ app.use('/api/irrigation-events', irrigationRoutes);
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  const db = require('./config/db');
+  db.query('SELECT 1').then(() => {
+    console.log('Database connected successfully.');
+  }).catch((err) => {
+    console.error('Database connection failed:', err.message);
+    console.error('Check your .env file — make sure DB_PASSWORD is set to your MySQL root password.');
+    console.error('The server will run but all database operations will return errors until this is fixed.');
+  });
+});
