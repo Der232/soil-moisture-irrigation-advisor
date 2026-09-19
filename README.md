@@ -2,7 +2,7 @@
 
 A web-based system that helps campus grounds staff and gardening clubs keep plants healthy without guesswork. Low-cost soil moisture sensors placed in garden beds feed the system, which displays live moisture levels, tracks trends over time, and gives clear watering recommendations per garden zone — including a 3D visualization of the garden that color-codes each plot by moisture level.
 
-The project includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: raw ADC readings, calibration, drying physics, and rule-based auto-watering with per-zone thresholds and cooldown. It also includes a **3D hardware demo page** that renders a realistic model of the complete physical setup — ESP32 board, capacitive sensor, relay, pump, reservoir, plant pot, and wiring — with animated water flow and soil that changes color as moisture rises.
+The project includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: root-zone water balance, rainfall, evapotranspiration, calibrated ADC readings, reservoir limits, and rule-based auto-watering with per-zone thresholds and cooldown. It also includes a **3D hardware demo page** that renders a realistic model of the complete physical setup — ESP32 board, capacitive sensor, relay, pump, reservoir, plant pot, and wiring — with animated water flow only when an irrigation event is active.
 
 The Dashboard, Irrigation Log, and zone management pages all work **without a backend** too: they try the real API first, then silently fall back to the built-in simulation, so you never see a "could not reach the backend" error during a demo.
 
@@ -35,7 +35,7 @@ Section 1 · Computer Science and Engineering (CSE), except Dereje Bogale (Softw
 - Rule-based irrigation advisor logic (no ML needed for a system this scale)
 
 **Simulated sensor pipeline**
-- A browser-based simulation engine (`frontend/src/simulation/irrigationEngine.js`) models a real sensor's measurement chain — per-zone-calibrated raw ADC drift, sensor noise, and a raw-to-percentage mapping matching real hardware — and runs the rule-based advisor to decide watering, all in the browser with no server.
+- A browser-based simulation engine (`frontend/src/simulation/irrigationEngine.js`) models a real sensor's measurement chain — storage-driven moisture, per-zone calibration, deterministic sensor noise, and a raw-to-percentage mapping matching real hardware — and runs the rule-based advisor to decide watering, all in the browser with no server.
 - A Node-based simulator (`backend/src/simulator/sensorSimulator.js`) is also available for the full-stack deployment. It posts readings to the same `/api/readings` endpoint real sensors would use, and only applies a simulated "watering" effect when the backend's advisor actually returns `watered: true`, so the simulated physical world and the real decision logic never disagree.
 
 ## Project Structure
@@ -297,17 +297,20 @@ cd soil-moisture-irrigation-advisor/backend
 npm test
 ```
 
-This runs 18 automated tests covering input validation and the irrigation advisor logic. No database connection is needed — tests use mocked data.
+This runs the backend automated tests covering input validation, calibration,
+engineering calculations, reading behavior, and irrigation advisor logic. No
+database connection is needed for the mocked unit tests.
 
 ## How It Works
 
 ### Browser Simulation
 
-1. Each zone has a simulated raw ADC value (0–4095, matching a 12-bit ESP32 ADC) that drifts upward as soil dries, modulated by a day/night evaporation cycle.
-2. Noise is added to each reading, then the raw value is mapped to a 0–100% moisture percentage using per-zone calibration (wet/dry raw points) — the same formula real firmware uses.
-3. The advisor checks if moisture is below the zone's own threshold. If so, it verifies the cooldown window has passed since the last watering event before triggering.
-4. When watering fires (auto or manual), the raw value recovers 60–85% toward the wet calibration point — simulating a pump pulse that doesn't instantly saturate the root zone.
-5. All events are logged and displayed in the event log panel.
+1. Each zone stores root-zone water in millimetres between a wilting point and field capacity. Temperature, humidity, daylight, and a per-zone drying factor produce a transparent evapotranspiration estimate.
+2. Rainfall and retained irrigation are added to storage; excess above field capacity is reported as drainage. Pump delivery, retained volume, and reservoir consumption remain separate quantities.
+3. The resulting state is converted to a calibrated 12-bit ADC reading with deterministic measurement noise, then mapped back to the displayed sensor-equivalent moisture percentage.
+4. The advisor applies per-zone thresholds, a target, cooldown, reservoir level, and daily budget. Sensor disconnection and pump failure create blocked/failed outcomes instead of false watering.
+5. The Simulation controls can inject rain, temperature, humidity, pump failure, and a sensor fault. Reset restores the reproducible starter scenario and reservoir.
+6. All completed and blocked events are logged with status, reason, duration, and water-volume fields.
 
 ### Full-Stack System
 
@@ -315,7 +318,7 @@ This runs 18 automated tests covering input validation and the irrigation adviso
 2. The backend stores it and runs it through the irrigation advisor, which flags a zone for watering if moisture drops below that zone's own configurable threshold — and enforces a cooldown (`IRRIGATION_COOLDOWN_MINUTES`) so a zone sitting below threshold doesn't re-trigger on every reading.
 3. The API response includes `advisorResult.watered` — real firmware acts on this directly (pulsing a relay) rather than duplicating the threshold/cooldown logic locally, so changing a zone's threshold in the dashboard takes effect immediately without reflashing hardware.
 4. The dashboard polls `/api/readings/latest` for live status cards and a Three.js 3D scene, and `/api/readings/history/:zoneId` for the moisture trend chart.
-5. In the 3D scene, each garden plot is color-coded (red = dry, amber = moderate, green = well-watered), and an animated sprinkler cue appears on zones currently below threshold.
+5. In the 3D scene, each garden plot is color-coded (red = dry, amber = moderate, green = well-watered). Water-flow animation appears only when a reading explicitly reports an active completed irrigation event; being dry alone is not treated as proof that a pump ran.
 
 ## Hardware Components
 

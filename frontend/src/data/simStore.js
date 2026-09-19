@@ -155,6 +155,7 @@ export const simStore = {
 
   getSystemStatus() {
     return {
+      mode: 'simulation',
       operatingModes: ['manual', 'automatic', 'simulation'],
       sensorDataNote: 'Browser readings are simulated and are not physical measurements.',
       reservoir: { ...reservoir },

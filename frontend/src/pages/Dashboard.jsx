@@ -5,12 +5,14 @@ import StatusCards from '../components/StatusCards';
 import MoistureChart from '../components/MoistureChart';
 import AttentionAlerts from '../components/AttentionAlerts';
 import ModeBanner from '../components/ModeBanner';
+import SystemOverview from '../components/SystemOverview';
 
 export default function Dashboard() {
   const [zones, setZones] = useState([]);
   const [readingsByZone, setReadingsByZone] = useState({});
   const [selectedZoneId, setSelectedZoneId] = useState(null);
   const [history, setHistory] = useState([]);
+  const [systemStatus, setSystemStatus] = useState(null);
   const [error, setError] = useState('');
 
   const loadZones = useCallback(() => {
@@ -42,9 +44,23 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
+  const fetchSystemStatus = useCallback(() => {
+    dataSource
+      .getSystemStatus()
+      .then((data) => setSystemStatus({
+        ...data,
+        mode: dataSource.getMode(),
+      }))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchLatest();
-    const interval = setInterval(fetchLatest, 4000);
+    fetchSystemStatus();
+    const interval = setInterval(() => {
+      fetchLatest();
+      fetchSystemStatus();
+    }, 4000);
 
     const unsub = dataSource.subscribe(() => {
       fetchLatest();
@@ -54,7 +70,7 @@ export default function Dashboard() {
       clearInterval(interval);
       unsub();
     };
-  }, [fetchLatest]);
+  }, [fetchLatest, fetchSystemStatus]);
 
   useEffect(() => {
     if (!selectedZoneId) return;
@@ -74,6 +90,7 @@ export default function Dashboard() {
     dataSource.setMode('unknown');
     loadZones();
     fetchLatest();
+    fetchSystemStatus();
   }
 
   return (
@@ -87,6 +104,9 @@ export default function Dashboard() {
         </div>
       )}
       <AttentionAlerts zones={zones} readingsByZone={readingsByZone} />
+      <div className="mb-4">
+        <SystemOverview status={systemStatus} zones={zones} readingsByZone={readingsByZone} />
+      </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0">
         <div className="min-h-[320px]">
