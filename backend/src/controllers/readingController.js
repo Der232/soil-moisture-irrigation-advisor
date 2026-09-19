@@ -4,12 +4,32 @@ const { evaluateZone } = require('../utils/irrigationAdvisor');
 // Called by real sensors later, or by the simulator now
 async function submitReading(req, res) {
   try {
-    const { zoneId, moisturePercent } = req.body;
+    const {
+      zoneId, moisturePercent, rawAdc, adcBits, sensorVoltageV, dataSource,
+      temperatureC, relativeHumidityPercent, rainfallMm, windFactor, solarFactor,
+      sensorStatus,
+    } = req.body;
     if (zoneId === undefined || moisturePercent === undefined) {
       return res.status(400).json({ error: 'zoneId and moisturePercent are required' });
     }
 
-    await addReading({ zoneId, moisturePercent });
+    const reading = { zoneId, moisturePercent };
+    const optionalFields = {
+      rawAdc,
+      adcBits,
+      sensorVoltageV,
+      dataSource,
+      temperatureC,
+      relativeHumidityPercent,
+      rainfallMm,
+      windFactor,
+      solarFactor,
+      sensorStatus,
+    };
+    Object.entries(optionalFields).forEach(([key, value]) => {
+      if (value !== undefined) reading[key] = value;
+    });
+    await addReading(reading);
     const advisorResult = await evaluateZone({ zoneId, moisturePercent });
 
     res.status(201).json({ message: 'Reading recorded', advisorResult });

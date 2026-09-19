@@ -5,6 +5,7 @@ require('dotenv').config();
 const zoneRoutes = require('./routes/zoneRoutes');
 const readingRoutes = require('./routes/readingRoutes');
 const irrigationRoutes = require('./routes/irrigationRoutes');
+const calibrationRoutes = require('./routes/calibrationRoutes');
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.use('/api/zones', zoneRoutes);
 app.use('/api/readings', readingRoutes);
 app.use('/api/irrigation-events', irrigationRoutes);
+app.use('/api/calibrations', calibrationRoutes);
 
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 

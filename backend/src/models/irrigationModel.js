@@ -1,9 +1,28 @@
 const db = require('../config/db');
 
-async function logIrrigationEvent({ zoneId, triggeredBy = 'auto', moistureBefore }) {
+async function logIrrigationEvent({
+  zoneId,
+  triggeredBy = 'auto',
+  moistureBefore,
+  mode = triggeredBy === 'manual' ? 'manual' : 'automatic',
+  status = 'completed',
+  reason = null,
+  durationSeconds = null,
+  requestedVolumeL = null,
+  deliveredVolumeL = null,
+  retainedVolumeL = null,
+  drainageVolumeL = null,
+}) {
   const [result] = await db.query(
-    'INSERT INTO irrigation_events (zone_id, triggered_by, moisture_before) VALUES (?, ?, ?)',
-    [zoneId, triggeredBy, moistureBefore]
+    `INSERT INTO irrigation_events
+      (zone_id, triggered_by, moisture_before, mode, status, reason,
+       duration_seconds, requested_volume_l, delivered_volume_l,
+       retained_volume_l, drainage_volume_l, completed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END)`,
+    [
+      zoneId, triggeredBy, moistureBefore, mode, status, reason, durationSeconds,
+      requestedVolumeL, deliveredVolumeL, retainedVolumeL, drainageVolumeL, status,
+    ]
   );
   return result.insertId;
 }

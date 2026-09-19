@@ -27,10 +27,20 @@ async function getZone(req, res) {
 
 async function addZone(req, res) {
   try {
-    const { name, locationNote, gridX, gridY, moistureThreshold } = req.body;
+    const {
+      name, locationNote, gridX, gridY, moistureThreshold, areaM2, soilType,
+      rootZoneDepthMm, fieldCapacityMm, wiltingPointMm, moistureTargetPercent,
+      upperMoisturePercent, pumpFlowLpm, irrigationEfficiencyPercent,
+      dryingRateFactor, operatingMode,
+    } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
-    const id = await createZone({ name, locationNote, gridX, gridY, moistureThreshold });
+    const id = await createZone({
+      name, locationNote, gridX, gridY, moistureThreshold, areaM2, soilType,
+      rootZoneDepthMm, fieldCapacityMm, wiltingPointMm, moistureTargetPercent,
+      upperMoisturePercent, pumpFlowLpm, irrigationEfficiencyPercent,
+      dryingRateFactor, operatingMode,
+    });
     res.status(201).json({ id, name });
   } catch (err) {
     res.status(500).json({ error: 'Failed to create zone', details: err.message });
@@ -42,7 +52,12 @@ async function editZone(req, res) {
     const existing = await getZoneById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Zone not found' });
 
-    const { name, locationNote, gridX, gridY, moistureThreshold } = req.body;
+    const {
+      name, locationNote, gridX, gridY, moistureThreshold, areaM2, soilType,
+      rootZoneDepthMm, fieldCapacityMm, wiltingPointMm, moistureTargetPercent,
+      upperMoisturePercent, pumpFlowLpm, irrigationEfficiencyPercent,
+      dryingRateFactor, operatingMode,
+    } = req.body;
     if (!name) return res.status(400).json({ error: 'name is required' });
 
     await updateZone(req.params.id, {
@@ -51,6 +66,17 @@ async function editZone(req, res) {
       gridX: gridX ?? existing.grid_x,
       gridY: gridY ?? existing.grid_y,
       moistureThreshold: moistureThreshold ?? existing.moisture_threshold,
+      areaM2: areaM2 ?? existing.area_m2,
+      soilType: soilType ?? existing.soil_type,
+      rootZoneDepthMm: rootZoneDepthMm ?? existing.root_zone_depth_mm,
+      fieldCapacityMm: fieldCapacityMm ?? existing.field_capacity_mm,
+      wiltingPointMm: wiltingPointMm ?? existing.wilting_point_mm,
+      moistureTargetPercent: moistureTargetPercent ?? existing.moisture_target_percent,
+      upperMoisturePercent: upperMoisturePercent ?? existing.upper_moisture_percent,
+      pumpFlowLpm: pumpFlowLpm ?? existing.pump_flow_lpm,
+      irrigationEfficiencyPercent: irrigationEfficiencyPercent ?? existing.irrigation_efficiency_percent,
+      dryingRateFactor: dryingRateFactor ?? existing.drying_rate_factor,
+      operatingMode: operatingMode ?? existing.operating_mode,
     });
     res.json({ id: Number(req.params.id), name });
   } catch (err) {

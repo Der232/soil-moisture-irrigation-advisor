@@ -1,9 +1,30 @@
 const db = require('../config/db');
 
-async function addReading({ zoneId, moisturePercent }) {
+async function addReading({
+  zoneId,
+  moisturePercent,
+  rawAdc = null,
+  adcBits = 12,
+  sensorVoltageV = null,
+  dataSource = 'simulated',
+  temperatureC = null,
+  relativeHumidityPercent = null,
+  rainfallMm = 0,
+  windFactor = 1,
+  solarFactor = 1,
+  sensorStatus = 'ok',
+}) {
   const [result] = await db.query(
-    'INSERT INTO sensor_readings (zone_id, moisture_percent) VALUES (?, ?)',
-    [zoneId, moisturePercent]
+    `INSERT INTO sensor_readings
+      (zone_id, moisture_percent, raw_adc, adc_bits, sensor_voltage_v, data_source,
+       temperature_c, relative_humidity_percent, rainfall_mm, wind_factor,
+       solar_factor, sensor_status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      zoneId, moisturePercent, rawAdc, adcBits, sensorVoltageV, dataSource,
+      temperatureC, relativeHumidityPercent, rainfallMm, windFactor, solarFactor,
+      sensorStatus,
+    ]
   );
   return result.insertId;
 }

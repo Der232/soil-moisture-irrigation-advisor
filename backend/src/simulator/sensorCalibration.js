@@ -23,7 +23,14 @@
  * resolution — the two are not interchangeable.
  */
 
-const ADC_MAX = 4095;
+const {
+  validateCalibration,
+  rawToMoisturePercent,
+  rawToVoltage,
+} = require('../utils/engineeringModel');
+
+const ADC_BITS = 12;
+const ADC_MAX = (2 ** ADC_BITS) - 1;
 
 // Per-zone calibration, simulating that each physical sensor unit calibrates
 // slightly differently. In a real deployment these would come from each
@@ -31,6 +38,8 @@ const ADC_MAX = 4095;
 const DEFAULT_CALIBRATION = {
   wetRaw: 1200, // raw ADC reading when the probe is fully submerged in water
   dryRaw: 3000, // raw ADC reading when the probe is completely dry (in air)
+  adcBits: ADC_BITS,
+  referenceVoltageV: 3.3,
 };
 
 /**
@@ -42,10 +51,25 @@ const DEFAULT_CALIBRATION = {
  * wetRaw -> 100% (wet) — matching the sensor behavior described above.
  */
 function rawToPercent(rawValue, calibration = DEFAULT_CALIBRATION) {
-  const { wetRaw, dryRaw } = calibration;
-  const clampedRaw = Math.max(Math.min(rawValue, dryRaw), wetRaw);
-  const percent = ((dryRaw - clampedRaw) / (dryRaw - wetRaw)) * 100;
-  return Math.max(0, Math.min(100, percent));
+  return rawToMoisturePercent(rawValue, {
+    ...DEFAULT_CALIBRATION,
+    ...calibration,
+  });
 }
 
-module.exports = { ADC_MAX, DEFAULT_CALIBRATION, rawToPercent };
+function rawToVoltageValue(rawValue, calibration = DEFAULT_CALIBRATION) {
+  return rawToVoltage(
+    rawValue,
+    calibration.adcBits || ADC_BITS,
+    calibration.referenceVoltageV || 3.3
+  );
+}
+
+module.exports = {
+  ADC_BITS,
+  ADC_MAX,
+  DEFAULT_CALIBRATION,
+  rawToPercent,
+  rawToVoltage: rawToVoltageValue,
+  validateCalibration,
+};
