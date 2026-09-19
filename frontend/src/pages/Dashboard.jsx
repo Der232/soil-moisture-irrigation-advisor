@@ -65,9 +65,9 @@ export default function Dashboard() {
   }, [selectedZoneId, readingsByZone]);
 
   function handleWatered(zoneId) {
-    dataSource.manualWater(zoneId).then(() => {
-      fetchLatest();
-    });
+    // StatusCards already performed the manual watering request. Trigger a
+    // refresh only; issuing another request here would double the pump pulse.
+    fetchLatest();
   }
 
   function handleRetry() {

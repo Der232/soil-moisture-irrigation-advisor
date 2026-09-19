@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts';
 import {
   createDefaultZones,
+  createReservoir,
   createZone,
   tickSimulation,
   manualWater,
@@ -12,12 +13,14 @@ const DEFAULT_DAY_MINUTES = 10;
 const TICK_MS = 2000;
 
 function statusColor(moisture, threshold) {
+  if (moisture === null) return 'bg-gray-100 border-gray-400 text-gray-700';
   if (moisture < threshold) return 'bg-red-100 border-red-400 text-red-800';
   if (moisture < threshold + 25) return 'bg-amber-100 border-amber-400 text-amber-800';
   return 'bg-emerald-100 border-emerald-400 text-emerald-800';
 }
 
 function statusLabel(moisture, threshold) {
+  if (moisture === null) return 'Sensor disconnected';
   if (moisture < threshold) return 'DRY — needs water';
   if (moisture < threshold + 25) return 'Moderate';
   return 'Well-watered';
@@ -29,12 +32,18 @@ function fmtTime(ts) {
 
 export default function Simulation() {
   const zonesRef = useRef(createDefaultZones());
+  const reservoirRef = useRef(createReservoir());
   const [zones, setZones] = useState(zonesRef.current);
   const [running, setRunning] = useState(true);
   const [selectedZoneId, setSelectedZoneId] = useState(1);
   const [cooldownMinutes, setCooldownMinutes] = useState(DEFAULT_COOLDOWN_MINUTES);
   const [tickCount, setTickCount] = useState(0);
   const [showAddZone, setShowAddZone] = useState(false);
+  const [rainfallMm, setRainfallMm] = useState(0);
+  const [temperatureC, setTemperatureC] = useState(25);
+  const [relativeHumidityPercent, setRelativeHumidityPercent] = useState(50);
+  const [pumpFailure, setPumpFailure] = useState(false);
+  const [sensorFailureZoneId, setSensorFailureZoneId] = useState('');
 
   const runningRef = useRef(running);
   runningRef.current = running;
@@ -44,10 +53,24 @@ export default function Simulation() {
     tickSimulation(zonesRef.current, {
       cooldownMinutes,
       simulatedDayMinutes: DEFAULT_DAY_MINUTES,
+      reservoir: reservoirRef.current,
+      rainfallMm,
+      environment: { temperatureC, relativeHumidityPercent },
+      pumpFailure,
+      sensorFailures: sensorFailureZoneId
+        ? { [sensorFailureZoneId]: 'disconnected' }
+        : {},
     });
     setZones([...zonesRef.current]);
     setTickCount((c) => c + 1);
-  }, [cooldownMinutes]);
+  }, [
+    cooldownMinutes,
+    rainfallMm,
+    temperatureC,
+    relativeHumidityPercent,
+    pumpFailure,
+    sensorFailureZoneId,
+  ]);
 
   useEffect(() => {
     const interval = setInterval(tick, TICK_MS);
@@ -59,7 +82,7 @@ export default function Simulation() {
   function handleManualWater(zoneId) {
     const zone = zonesRef.current.find((z) => z.id === zoneId);
     if (!zone) return;
-    manualWater(zone);
+    manualWater(zone, { reservoir: reservoirRef.current, pumpFailure });
     setZones([...zonesRef.current]);
   }
 
@@ -82,6 +105,7 @@ export default function Simulation() {
 
   function handleReset() {
     zonesRef.current = createDefaultZones();
+    reservoirRef.current = createReservoir();
     setZones(zonesRef.current);
     setSelectedZoneId(1);
     setTickCount(0);
@@ -96,7 +120,7 @@ export default function Simulation() {
     ? selectedZone.history.map((h) => ({ time: fmtTime(h.timestamp), moisture: h.moisture }))
     : [];
 
-  const dryCount = zones.filter((z) => z.currentMoisture < z.moistureThreshold).length;
+  const dryCount = zones.filter((z) => z.currentMoisture !== null && z.currentMoisture < z.moistureThreshold).length;
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -146,6 +170,58 @@ export default function Simulation() {
             {dryCount > 0 ? `${dryCount} zone${dryCount > 1 ? 's' : ''} below threshold` : 'All zones healthy'}
           </span>
         </div>
+        <label className="text-sm text-gray-700">
+          Rain (mm/tick)
+          <input
+            type="number"
+            min="0"
+            max="1000"
+            value={rainfallMm}
+            onChange={(e) => setRainfallMm(Math.max(0, Number(e.target.value) || 0))}
+            className="ml-2 w-20 text-sm border rounded px-2 py-1"
+          />
+        </label>
+        <label className="text-sm text-gray-700">
+          Temp (°C)
+          <input
+            type="number"
+            min="-20"
+            max="60"
+            value={temperatureC}
+            onChange={(e) => setTemperatureC(Number(e.target.value) || 0)}
+            className="ml-2 w-16 text-sm border rounded px-2 py-1"
+          />
+        </label>
+        <label className="text-sm text-gray-700">
+          RH (%)
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={relativeHumidityPercent}
+            onChange={(e) => setRelativeHumidityPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+            className="ml-2 w-16 text-sm border rounded px-2 py-1"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-sm text-gray-700">
+          <input type="checkbox" checked={pumpFailure} onChange={(e) => setPumpFailure(e.target.checked)} />
+          Simulate pump failure
+        </label>
+        <label className="text-sm text-gray-700">
+          Sensor fault
+          <select
+            value={sensorFailureZoneId}
+            onChange={(e) => setSensorFailureZoneId(e.target.value)}
+            className="ml-2 text-sm border rounded px-2 py-1"
+          >
+            <option value="">None</option>
+            {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select>
+        </label>
+        <div className="text-sm text-gray-600">
+          Reservoir: <span className="font-medium">{reservoirRef.current.currentLevelL.toFixed(1)} L</span>
+          {' '}· daily used {reservoirRef.current.dailyUsedL.toFixed(1)} L / {reservoirRef.current.dailyBudgetL} L
+        </div>
         <button
           onClick={() => setShowAddZone(true)}
           className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-auto"
@@ -174,7 +250,7 @@ export default function Simulation() {
                   #{zone.id}
                 </span>
               </div>
-              <p className="text-3xl font-bold mb-1">{moisture.toFixed(1)}%</p>
+              <p className="text-3xl font-bold mb-1">{moisture === null ? '—' : `${moisture.toFixed(1)}%`}</p>
               <p className="text-xs opacity-75 mb-1">{zone.locationNote}</p>
               <p className="text-xs opacity-60 mb-2">
  Waters below {threshold}% · {statusLabel(moisture, threshold)}
@@ -257,7 +333,10 @@ export default function Simulation() {
                     <span className="font-medium">{evt.zoneName}</span>
                   </div>
                   <div className="text-right text-xs text-gray-500">
-                    <div>Moisture before: {evt.moistureBefore.toFixed(1)}%</div>
+                    <div>Moisture before: {evt.moistureBefore === null ? '—' : `${evt.moistureBefore.toFixed(1)}%`}</div>
+                    {evt.requestedVolumeL !== undefined && (
+                      <div>{evt.status} · {Number(evt.requestedVolumeL).toFixed(2)} L requested</div>
+                    )}
                     <div>{fmtTime(evt.timestamp)}</div>
                   </div>
                 </div>
@@ -271,10 +350,10 @@ export default function Simulation() {
       <div className="mt-6 bg-gray-50 border rounded-lg p-4 text-sm text-gray-600">
         <h3 className="font-medium text-gray-800 mb-2">How this simulation works</h3>
         <ol className="list-decimal list-inside space-y-1">
-          <li>Each zone has a simulated raw ADC value (0–4095, matching a 12-bit ESP32 ADC) that drifts upward as soil dries, modulated by a day/night evaporation cycle.</li>
-          <li>Gaussian noise is added to each reading, then the raw value is mapped to a 0–100% moisture percentage using per-zone calibration (wet/dry raw points) — the same formula real firmware uses.</li>
-          <li>The advisor checks if moisture is below the zone's threshold. If so, it verifies the cooldown window has passed since the last watering event before triggering.</li>
-          <li>When watering fires (auto or manual), the raw value recovers 60–85% toward the wet calibration point — simulating a pump pulse that doesn't instantly saturate the root zone.</li>
+          <li>Each zone stores root-zone water in millimetres between a wilting point and field capacity. Temperature, humidity, daylight, and the zone drying factor produce a transparent evapotranspiration estimate.</li>
+          <li>Rainfall and retained irrigation are added to storage; excess above field capacity is reported as drainage. The pump volume and efficiency determine how much water is retained.</li>
+          <li>The sensor reading is derived from storage, converted to a calibrated 12-bit ADC value, then measured with deterministic noise. A disconnected sensor cannot trigger irrigation.</li>
+          <li>The advisor applies the lower threshold, target, cooldown, reservoir level, daily budget, and optional pump-failure rule. Events distinguish completed and blocked watering.</li>
         </ol>
       </div>
     </div>

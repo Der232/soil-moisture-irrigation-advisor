@@ -328,13 +328,17 @@ export default function GardenScene3D({ zones, readingsByZone }) {
 
         const moisture = reading.moisture_percent;
         const threshold = Number(zone.moisture_threshold ?? 30);
-        const isDry = moisture < threshold;
-        const isWatering = isDry;
+        const hasReading = Number.isFinite(Number(moisture));
+        const isDry = hasReading && moisture < threshold;
+        // Animation must represent an actual completed simulation event.
+        // Being below a threshold is only a recommendation, not proof that
+        // a pump ran; live API readings without this field stay still.
+        const isWatering = reading.irrigation_active === true;
 
         // Plot color: red-brown when dry, amber when moderate, green when wet
         let plotColor;
         if (isDry) plotColor = 0xb45309;
-        else if (moisture < threshold + 30) plotColor = 0xca8a04;
+        else if (hasReading && moisture < threshold + 30) plotColor = 0xca8a04;
         else plotColor = 0x16a34a;
         plot.material.color.setHex(plotColor);
 
@@ -342,7 +346,7 @@ export default function GardenScene3D({ zones, readingsByZone }) {
         if (soil) {
           const dryCol = new THREE.Color(0xc4a35a);
           const wetCol = new THREE.Color(0x3d2817);
-          const soilCol = dryCol.clone().lerp(wetCol, moisture / 100);
+          const soilCol = dryCol.clone().lerp(wetCol, hasReading ? moisture / 100 : 0);
           soil.material.color.copy(soilCol);
         }
 

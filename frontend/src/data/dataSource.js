@@ -82,6 +82,20 @@ export const dataSource = {
     }
   },
 
+  async getSystemStatus() {
+    try {
+      const res = await api.get('/system/status');
+      mode = 'live';
+      return res.data;
+    } catch (err) {
+      if (shouldFallbackToSim(err)) {
+        mode = 'simulation';
+        return simStore.getSystemStatus();
+      }
+      throw err;
+    }
+  },
+
   async createZone(data) {
     try {
       const res = await api.post('/zones', data);
