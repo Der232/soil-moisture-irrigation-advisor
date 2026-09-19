@@ -30,7 +30,7 @@ async function submitReading(req, res) {
       if (value !== undefined) reading[key] = value;
     });
     await addReading(reading);
-    const advisorResult = await evaluateZone({ zoneId, moisturePercent });
+    const advisorResult = await evaluateZone({ zoneId, moisturePercent, sensorStatus });
 
     res.status(201).json({ message: 'Reading recorded', advisorResult });
   } catch (err) {

@@ -78,6 +78,24 @@ describe('evaluateZone', () => {
     expect(result.reason).toBe('Zone not found');
   });
 
+  it('inhibits automatic watering for a disconnected sensor', async () => {
+    getZoneById.mockResolvedValue({ id: 1, moisture_threshold: 30 });
+
+    const result = await evaluateZone({
+      zoneId: 1,
+      moisturePercent: 5,
+      sensorStatus: 'disconnected',
+    });
+
+    expect(result).toEqual({
+      watered: false,
+      threshold: 30,
+      blocked: true,
+      reason: 'Sensor status is disconnected; irrigation is inhibited',
+    });
+    expect(logIrrigationEvent).not.toHaveBeenCalled();
+  });
+
   describe('cooldown behavior (prevents re-triggering a physical pump every reading)', () => {
     it('does not re-water or log a new event if still within the cooldown window', async () => {
       getZoneById.mockResolvedValue({ id: 1, moisture_threshold: 30 });

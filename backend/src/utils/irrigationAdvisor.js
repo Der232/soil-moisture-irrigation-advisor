@@ -138,12 +138,26 @@ async function requestIrrigation({
  * absorption-into-soil delay work, and is also the signal firmware should
  * use to decide whether to physically pulse a relay right now.
  */
-async function evaluateZone({ zoneId, moisturePercent, mode = 'automatic' }) {
+async function evaluateZone({
+  zoneId,
+  moisturePercent,
+  mode = 'automatic',
+  sensorStatus = 'ok',
+}) {
   const zone = await getZoneById(zoneId);
   const threshold = zone ? Number(zone.moisture_threshold) : DEFAULT_THRESHOLD;
 
   if (!zone) {
     return { watered: false, threshold, blocked: true, reason: 'Zone not found' };
+  }
+
+  if (sensorStatus !== 'ok') {
+    return {
+      watered: false,
+      threshold,
+      blocked: true,
+      reason: `Sensor status is ${sensorStatus}; irrigation is inhibited`,
+    };
   }
 
   if (mode === 'automatic' && zone?.operating_mode === 'manual') {

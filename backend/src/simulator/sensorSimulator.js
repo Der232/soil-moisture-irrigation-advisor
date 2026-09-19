@@ -32,7 +32,7 @@
  */
 require('dotenv').config();
 const axios = require('axios');
-const { ADC_MAX, rawToPercent } = require('./sensorCalibration');
+const { ADC_BITS, ADC_MAX, rawToPercent, rawToVoltage } = require('./sensorCalibration');
 
 const API_URL = process.env.SIMULATOR_API_URL || 'http://localhost:5001/api/readings';
 const ZONE_COUNT = parseInt(process.env.SIMULATOR_ZONE_COUNT || '4', 10);
@@ -115,7 +115,19 @@ async function tick() {
     const moisturePercent = Number(rawToPercent(measuredRaw, zoneCalibration[zoneId]).toFixed(2));
 
     try {
-      const res = await axios.post(API_URL, { zoneId, moisturePercent });
+      const res = await axios.post(API_URL, {
+        zoneId,
+        moisturePercent,
+        rawAdc: Math.round(measuredRaw),
+        adcBits: ADC_BITS,
+        sensorVoltageV: Number(rawToVoltage(measuredRaw, zoneCalibration[zoneId]).toFixed(3)),
+        dataSource: 'simulated',
+        temperatureC: 25,
+        relativeHumidityPercent: 50,
+        windFactor: 1,
+        solarFactor: 1,
+        sensorStatus: 'ok',
+      });
       const advisorResult = res.data && res.data.advisorResult;
 
       console.log(

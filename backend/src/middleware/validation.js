@@ -14,7 +14,13 @@ const readingRules = [
     .isFloat({ min: 0, max: 100 })
     .withMessage('moisturePercent must be a number between 0 and 100'),
   body('rawAdc').optional({ nullable: true }).isInt({ min: 0 })
-    .withMessage('rawAdc must be a non-negative integer'),
+    .withMessage('rawAdc must be a non-negative integer')
+    .bail()
+    .custom((value, { req }) => {
+      const bits = Number(req.body.adcBits ?? 12);
+      return Number(value) <= (2 ** bits) - 1;
+    })
+    .withMessage('rawAdc is outside the configured ADC range'),
   body('adcBits').optional().isInt({ min: 8, max: 16 })
     .withMessage('adcBits must be between 8 and 16'),
   body('sensorVoltageV').optional({ nullable: true }).isFloat({ min: 0, max: 10 })
@@ -65,18 +71,27 @@ const zoneRules = [
     .withMessage('dryingRateFactor must be between 0 and 20'),
   body('operatingMode').optional().isIn(['manual', 'automatic', 'simulation'])
     .withMessage('operatingMode is invalid'),
+  body('wiltingPointMm').optional().custom((value, { req }) => (
+    Number(value) <= Number(req.body.fieldCapacityMm ?? 150)
+  )).withMessage('wiltingPointMm cannot exceed fieldCapacityMm'),
+  body('upperMoisturePercent').optional().custom((value, { req }) => (
+    Number(value) >= Number(req.body.moistureTargetPercent ?? 65)
+  )).withMessage('upperMoisturePercent must be at least moistureTargetPercent'),
 ];
 
 const manualWaterRules = [
   body('zoneId').isInt({ min: 1 }).withMessage('zoneId must be a valid id'),
-  body('durationSeconds').optional().isInt({ min: 1, max: 3600 })
-    .withMessage('durationSeconds must be between 1 and 3600'),
+  body('durationSeconds').optional().isInt({ min: 1, max: 300 })
+    .withMessage('durationSeconds must be between 1 and 300'),
 ];
 
 const reservoirRules = [
   body('capacityL').isFloat({ min: 0, max: 1000000 }).withMessage('capacityL is invalid'),
   body('currentLevelL').isFloat({ min: 0, max: 1000000 }).withMessage('currentLevelL is invalid'),
   body('dailyBudgetL').isFloat({ min: 0, max: 1000000 }).withMessage('dailyBudgetL is invalid'),
+  body('currentLevelL').custom((value, { req }) => (
+    Number(value) <= Number(req.body.capacityL)
+  )).withMessage('currentLevelL cannot exceed capacityL'),
 ];
 
 const calibrationRules = [
@@ -84,6 +99,12 @@ const calibrationRules = [
   body('referenceVoltageV').isFloat({ min: 0.1, max: 10 }).withMessage('referenceVoltageV is invalid'),
   body('wetRaw').isInt({ min: 0 }).withMessage('wetRaw must be a non-negative integer'),
   body('dryRaw').isInt({ min: 0 }).withMessage('dryRaw must be a non-negative integer'),
+  body('dryRaw').custom((value, { req }) => Number(value) !== Number(req.body.wetRaw))
+    .withMessage('wetRaw and dryRaw must be different'),
+  body('wetRaw').custom((value, { req }) => {
+    const maxRaw = (2 ** Number(req.body.adcBits)) - 1;
+    return Number(value) <= maxRaw && Number(req.body.dryRaw) <= maxRaw;
+  }).withMessage('calibration raw values must fit the selected ADC'),
   body('calibrationNote').optional({ nullable: true }).isString().isLength({ max: 255 })
     .withMessage('calibrationNote must be at most 255 characters'),
 ];

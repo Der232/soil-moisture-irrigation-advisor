@@ -32,7 +32,10 @@ async function addReading({
 // Latest reading for every zone (used by the dashboard's live status cards)
 async function getLatestReadings() {
   const [rows] = await db.query(`
-    SELECT sr.zone_id, sr.moisture_percent, sr.recorded_at
+    SELECT sr.zone_id, sr.moisture_percent, sr.raw_adc, sr.adc_bits,
+           sr.sensor_voltage_v, sr.data_source, sr.temperature_c,
+           sr.relative_humidity_percent, sr.rainfall_mm, sr.wind_factor,
+           sr.solar_factor, sr.sensor_status, sr.recorded_at
     FROM sensor_readings sr
     INNER JOIN (
       SELECT zone_id, MAX(recorded_at) AS max_time
@@ -46,7 +49,11 @@ async function getLatestReadings() {
 // Reading history for a single zone (used for the chart panel)
 async function getHistoryForZone(zoneId, limit = 50) {
   const [rows] = await db.query(
-    'SELECT moisture_percent, recorded_at FROM sensor_readings WHERE zone_id = ? ORDER BY recorded_at DESC LIMIT ?',
+    `SELECT moisture_percent, raw_adc, adc_bits, sensor_voltage_v,
+            data_source, temperature_c, relative_humidity_percent,
+            rainfall_mm, wind_factor, solar_factor, sensor_status, recorded_at
+     FROM sensor_readings
+     WHERE zone_id = ? ORDER BY recorded_at DESC LIMIT ?`,
     [zoneId, limit]
   );
   return rows.reverse();
