@@ -2,7 +2,7 @@
 
 A web-based system that helps campus grounds staff and gardening clubs keep plants healthy without guesswork. Low-cost soil moisture sensors placed in garden beds feed the system, which displays live moisture levels, tracks trends over time, and gives clear watering recommendations per garden zone — including a 3D visualization of the garden that color-codes each plot by moisture level.
 
-The project includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: root-zone water balance, rainfall, evapotranspiration, calibrated ADC readings, reservoir limits, and rule-based auto-watering with per-zone thresholds and cooldown. It also includes a **3D hardware demo page** that renders a realistic model of the complete physical setup — ESP32 board, capacitive sensor, relay, pump, reservoir, plant pot, and wiring — with animated water flow only when an irrigation event is active.
+The project includes a **self-contained irrigation simulation** that runs entirely in the browser with no backend or database required, modeling the full sensor-to-watering loop: raw ADC readings, calibration, drying physics, and rule-based auto-watering with per-zone thresholds and cooldown. It also includes a **3D hardware demo page** that renders a realistic model of the complete physical setup — ESP32 board, capacitive sensor, relay, pump, reservoir, plant pot, and wiring — with animated water flow and soil that changes color as moisture rises.
 
 The Dashboard, Irrigation Log, and zone management pages all work **without a backend** too: they try the real API first, then silently fall back to the built-in simulation, so you never see a "could not reach the backend" error during a demo.
 
@@ -35,7 +35,7 @@ Section 1 · Computer Science and Engineering (CSE), except Dereje Bogale (Softw
 - Rule-based irrigation advisor logic (no ML needed for a system this scale)
 
 **Simulated sensor pipeline**
-- A browser-based simulation engine (`frontend/src/simulation/irrigationEngine.js`) models a real sensor's measurement chain — storage-driven moisture, per-zone calibration, deterministic sensor noise, and a raw-to-percentage mapping matching real hardware — and runs the rule-based advisor to decide watering, all in the browser with no server.
+- A browser-based simulation engine (`frontend/src/simulation/irrigationEngine.js`) models a real sensor's measurement chain — per-zone-calibrated raw ADC drift, sensor noise, and a raw-to-percentage mapping matching real hardware — and runs the rule-based advisor to decide watering, all in the browser with no server.
 - A Node-based simulator (`backend/src/simulator/sensorSimulator.js`) is also available for the full-stack deployment. It posts readings to the same `/api/readings` endpoint real sensors would use, and only applies a simulated "watering" effect when the backend's advisor actually returns `watered: true`, so the simulated physical world and the real decision logic never disagree.
 
 ## Project Structure
@@ -66,6 +66,89 @@ soil-moisture-irrigation-advisor/
 ```
 
 ## Getting Started
+
+### For Existing Users (Already Cloned — Need to Update)
+
+If you already cloned the project before and just need the latest changes, follow these steps. The repository has been updated with new features, bug fixes, and dependency upgrades.
+
+**Step 1 — Open a terminal in your project folder**
+
+Open a terminal (Command Prompt or PowerShell on Windows) and navigate to the folder where you cloned the project:
+
+```
+cd soil-moisture-irrigation-advisor
+```
+
+This means "go into the project folder." If it's on your Desktop, the full path might be `cd Desktop/soil-moisture-irrigation-advisor`.
+
+**Step 2 — Download the latest changes from GitHub**
+
+```
+git pull origin main
+```
+
+This means "download the newest version of the code from GitHub and update my local copy." You should see updated files listed. If you get an error about local changes conflicting, run `git stash` first (this temporarily saves your local changes), then `git pull origin main` again.
+
+**Step 3 — Update the backend libraries**
+
+Go to the backend folder:
+
+```
+cd backend
+```
+
+Reinstall the backend libraries (this picks up the upgraded versions):
+
+```
+npm install
+```
+
+This updates the downloaded libraries to the newest versions. It may take 15–30 seconds.
+
+**Step 4 — Update the database (only if you already set up MySQL before)**
+
+If you already created the database and tables previously, you only need to run the second migration again (it's now safe to re-run — it won't crash if the column already exists):
+
+```
+mysql -u root -p < migrations/002_add_zone_moisture_threshold.sql
+```
+
+Type your MySQL password when prompted. You should see no error messages.
+
+If you get `ERROR 2003 (HY000): Can't connect to MySQL server on 'localhost:3306'`, it means MySQL is not running. Start the MySQL service first:
+- **Windows**: Open Services (search "Services" in the Start menu), find "MySQL80" or "MySQL", right-click and select "Start"
+- **Mac**: Run `brew services start mysql` or `sudo mysql.server start`
+- **Linux**: Run `sudo systemctl start mysql`
+
+Then try the command again.
+
+**Step 5 — Update the frontend libraries**
+
+Go to the frontend folder (open a new terminal or navigate from the backend folder):
+
+```
+cd ../frontend
+```
+
+Reinstall the frontend libraries:
+
+```
+npm install
+```
+
+This updates the downloaded libraries to the newest versions.
+
+**Step 6 — Restart everything**
+
+If you want to run the full-stack system, follow the "Full-Stack Setup" instructions below starting from Step 6 (Start the backend server). If you only want the browser simulation, just run:
+
+```
+npm run dev
+```
+
+in the frontend folder and open the URL in your browser.
+
+---
 
 ### Quick Start: Browser simulation only (no database needed)
 
@@ -133,15 +216,26 @@ Open the URL shown in the terminal (e.g. `http://localhost:5174`) in any browser
 
 This runs the complete system with a real database, a real backend API, and a simulated sensor that feeds it data. You need MySQL installed and running on your computer.
 
+**Important: Start things in this order: MySQL first, then the backend, then the simulator, then the frontend. The simulator will show connection errors if the backend isn't running yet.**
+
 #### Step 1 — Install MySQL
 
-Download MySQL Community Server from https://dev.mysql.com/downloads/ and install it. During installation, you'll set a root password — remember it, you'll need it below. To verify MySQL is running, open a terminal and run:
+Download MySQL Community Server from https://dev.mysql.com/downloads/ and install it. During installation, you'll set a root password — remember it, you'll need it below.
+
+After installing, make sure MySQL is running:
+- **Windows**: MySQL usually starts automatically as a Windows service. To check, open Services (search "Services" in the Start menu), find "MySQL80" or "MySQL" — its status should say "Running". If it says "Stopped", right-click and select "Start".
+- **Mac**: Run `brew services start mysql` or `sudo mysql.server start`
+- **Linux**: Run `sudo systemctl start mysql`
+
+To verify MySQL is running, open a terminal and run:
 
 ```
 mysql --version
 ```
 
-You should see a version number. This just confirms MySQL is installed.
+You should see a version number. If you get "command not found", MySQL is not installed or not in your system path — reinstall it and make sure to check "Add to PATH" during installation.
+
+If you get `ERROR 2003 (HY000): Can't connect to MySQL server on 'localhost:3306'` when trying to connect, MySQL is installed but not running — start it using the instructions above.
 
 #### Step 2 — Download the project (if not already done)
 
@@ -157,6 +251,12 @@ cd soil-moisture-irrigation-advisor/backend
 
 Copy the example configuration file:
 
+**Windows (Command Prompt):**
+```
+copy .env.example .env
+```
+
+**Mac/Linux/Git Bash:**
 ```
 cp .env.example .env
 ```
@@ -175,7 +275,7 @@ IRRIGATION_COOLDOWN_MINUTES=10
 SIMULATOR_INTERVAL_MS=5000
 ```
 
-Replace `your_mysql_password_here` with the actual password you set during MySQL installation. Save the file.
+Replace `your_mysql_password_here` with the actual password you set during MySQL installation. Save the file. This tells the backend how to connect to your MySQL database.
 
 #### Step 4 — Install backend libraries
 
@@ -195,7 +295,7 @@ Still in the same terminal, in the `backend` folder:
 mysql -u root -p < migrations/001_init_schema.sql
 ```
 
-This command means: "Open MySQL as the root user (-u root), ask me for my password (-p), and feed it the SQL file that creates the database and tables." Type your MySQL password when prompted. You won't see characters as you type — this is normal. Press Enter after typing it.
+This command means: "Open MySQL as the root user (`-u root`), ask me for my password (`-p`), and run the SQL commands from the file `001_init_schema.sql`." The `<` symbol feeds the file's contents into MySQL. Type your MySQL password when prompted (you won't see characters as you type — that's normal). Press Enter after typing it.
 
 This creates a database called `soil_irrigation` with three tables (garden zones, sensor readings, irrigation events) and inserts four starter garden zones.
 
@@ -205,7 +305,7 @@ Then run the second migration to add the per-zone moisture threshold column:
 mysql -u root -p < migrations/002_add_zone_moisture_threshold.sql
 ```
 
-Enter your password again. This adds a `moisture_threshold` column to the garden zones table so each zone can have its own watering threshold.
+Enter your password again. This adds a `moisture_threshold` column to the garden zones table so each zone can have its own watering threshold. This command is safe to run multiple times — it won't crash if the column already exists.
 
 #### Step 6 — Start the backend server
 
@@ -215,7 +315,9 @@ Still in the same terminal, in the `backend` folder:
 npm run dev
 ```
 
-This starts the backend API server. You'll see a message like "Server running on port 5001". **Keep this terminal open** — the backend needs to stay running.
+This starts the backend API server. You should see "Server running on port 5001" followed by "Database connected successfully." If you see "Database connection failed", check that MySQL is running and your `.env` file has the correct password. **Keep this terminal open** — the backend needs to stay running.
+
+**Do not start the simulator (Step 7) until this terminal shows "Server running on port 5001" and "Database connected successfully."** If you start the simulator before the backend is running, you will see connection errors like `connect ECONNREFUSED ::1:5001`.
 
 #### Step 7 — Start the sensor simulator
 
@@ -232,6 +334,8 @@ npm run simulate
 ```
 
 This starts a simulated sensor that generates realistic moisture readings every 5 seconds and sends them to the backend, just like real ESP32 hardware would. You'll see readings appear in the terminal. **Keep this terminal open too.**
+
+If you see `connect ECONNREFUSED ::1:5001` errors, it means the backend server (Step 6) is not running. Go back to the first terminal and make sure the backend started successfully before running the simulator.
 
 #### Step 8 — Seed historical data (optional but recommended)
 
@@ -297,20 +401,17 @@ cd soil-moisture-irrigation-advisor/backend
 npm test
 ```
 
-This runs the backend automated tests covering input validation, calibration,
-engineering calculations, reading behavior, and irrigation advisor logic. No
-database connection is needed for the mocked unit tests.
+This runs 18 automated tests covering input validation and the irrigation advisor logic. No database connection is needed — tests use mocked data.
 
 ## How It Works
 
 ### Browser Simulation
 
-1. Each zone stores root-zone water in millimetres between a wilting point and field capacity. Temperature, humidity, daylight, and a per-zone drying factor produce a transparent evapotranspiration estimate.
-2. Rainfall and retained irrigation are added to storage; excess above field capacity is reported as drainage. Pump delivery, retained volume, and reservoir consumption remain separate quantities.
-3. The resulting state is converted to a calibrated 12-bit ADC reading with deterministic measurement noise, then mapped back to the displayed sensor-equivalent moisture percentage.
-4. The advisor applies per-zone thresholds, a target, cooldown, reservoir level, and daily budget. Sensor disconnection and pump failure create blocked/failed outcomes instead of false watering.
-5. The Simulation controls can inject rain, temperature, humidity, pump failure, and a sensor fault. Reset restores the reproducible starter scenario and reservoir.
-6. All completed and blocked events are logged with status, reason, duration, and water-volume fields.
+1. Each zone has a simulated raw ADC value (0–4095, matching a 12-bit ESP32 ADC) that drifts upward as soil dries, modulated by a day/night evaporation cycle.
+2. Noise is added to each reading, then the raw value is mapped to a 0–100% moisture percentage using per-zone calibration (wet/dry raw points) — the same formula real firmware uses.
+3. The advisor checks if moisture is below the zone's own threshold. If so, it verifies the cooldown window has passed since the last watering event before triggering.
+4. When watering fires (auto or manual), the raw value recovers 60–85% toward the wet calibration point — simulating a pump pulse that doesn't instantly saturate the root zone.
+5. All events are logged and displayed in the event log panel.
 
 ### Full-Stack System
 
@@ -318,7 +419,7 @@ database connection is needed for the mocked unit tests.
 2. The backend stores it and runs it through the irrigation advisor, which flags a zone for watering if moisture drops below that zone's own configurable threshold — and enforces a cooldown (`IRRIGATION_COOLDOWN_MINUTES`) so a zone sitting below threshold doesn't re-trigger on every reading.
 3. The API response includes `advisorResult.watered` — real firmware acts on this directly (pulsing a relay) rather than duplicating the threshold/cooldown logic locally, so changing a zone's threshold in the dashboard takes effect immediately without reflashing hardware.
 4. The dashboard polls `/api/readings/latest` for live status cards and a Three.js 3D scene, and `/api/readings/history/:zoneId` for the moisture trend chart.
-5. In the 3D scene, each garden plot is color-coded (red = dry, amber = moderate, green = well-watered). Water-flow animation appears only when a reading explicitly reports an active completed irrigation event; being dry alone is not treated as proof that a pump ran.
+5. In the 3D scene, each garden plot is color-coded (red = dry, amber = moderate, green = well-watered), the soil surface darkens from light to dark brown as moisture rises, and a mini hardware rig beside each plot (ESP32, sensor, relay, pump, reservoir) animates with water droplets flowing into the soil and the relay LED lighting up when a zone is being watered. Each zone is labeled with its name, and each hardware component is labeled on hover.
 
 ## Hardware Components
 
