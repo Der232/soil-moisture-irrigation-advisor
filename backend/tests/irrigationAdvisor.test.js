@@ -1,8 +1,10 @@
 jest.mock('../src/models/zoneModel');
 jest.mock('../src/models/irrigationModel');
+jest.mock('../src/models/reservoirModel');
 
 const { getZoneById } = require('../src/models/zoneModel');
 const { logIrrigationEvent, getMostRecentEventForZone } = require('../src/models/irrigationModel');
+const { reserveWater } = require('../src/models/reservoirModel');
 const { evaluateZone } = require('../src/utils/irrigationAdvisor');
 
 beforeEach(() => {
@@ -10,6 +12,13 @@ beforeEach(() => {
   // Default: no prior irrigation event exists for the zone, so cooldown
   // never blocks a test unless a test explicitly sets up a recent one.
   getMostRecentEventForZone.mockResolvedValue(null);
+  logIrrigationEvent.mockResolvedValue(123);
+  reserveWater.mockResolvedValue({
+    approved: true,
+    requestedVolumeL: 1,
+    remainingVolumeL: 499,
+    remainingBudgetL: 99,
+  });
 });
 
 describe('evaluateZone', () => {
@@ -27,12 +36,14 @@ describe('evaluateZone', () => {
 
     const result = await evaluateZone({ zoneId: 1, moisturePercent: 25 });
 
-    expect(result).toEqual({ watered: true, threshold: 30 });
-    expect(logIrrigationEvent).toHaveBeenCalledWith({
+    expect(result.watered).toBe(true);
+    expect(result.threshold).toBe(30);
+    expect(logIrrigationEvent).toHaveBeenCalledWith(expect.objectContaining({
       zoneId: 1,
       triggeredBy: 'auto',
       moistureBefore: 25,
-    });
+      status: 'completed',
+    }));
   });
 
   it('respects a higher per-zone threshold, watering earlier than the 30% default', async () => {
@@ -42,7 +53,8 @@ describe('evaluateZone', () => {
 
     // 45% is above the old global default of 30%, but below this zone's
     // custom 50% threshold, so it should still trigger watering.
-    expect(result).toEqual({ watered: true, threshold: 50 });
+    expect(result.watered).toBe(true);
+    expect(result.threshold).toBe(50);
   });
 
   it('respects a lower per-zone threshold, not watering until moisture drops further', async () => {
@@ -61,7 +73,9 @@ describe('evaluateZone', () => {
     const result = await evaluateZone({ zoneId: 999, moisturePercent: 25 });
 
     expect(result.threshold).toBe(30);
-    expect(result.watered).toBe(true);
+    expect(result.watered).toBe(false);
+    expect(result.blocked).toBe(true);
+    expect(result.reason).toBe('Zone not found');
   });
 
   describe('cooldown behavior (prevents re-triggering a physical pump every reading)', () => {

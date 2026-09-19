@@ -73,6 +73,12 @@ const manualWaterRules = [
     .withMessage('durationSeconds must be between 1 and 3600'),
 ];
 
+const reservoirRules = [
+  body('capacityL').isFloat({ min: 0, max: 1000000 }).withMessage('capacityL is invalid'),
+  body('currentLevelL').isFloat({ min: 0, max: 1000000 }).withMessage('currentLevelL is invalid'),
+  body('dailyBudgetL').isFloat({ min: 0, max: 1000000 }).withMessage('dailyBudgetL is invalid'),
+];
+
 const calibrationRules = [
   body('adcBits').isInt({ min: 8, max: 16 }).withMessage('adcBits must be between 8 and 16'),
   body('referenceVoltageV').isFloat({ min: 0.1, max: 10 }).withMessage('referenceVoltageV is invalid'),
@@ -87,5 +93,6 @@ module.exports = {
   readingRules,
   zoneRules,
   manualWaterRules,
+  reservoirRules,
   calibrationRules,
 };

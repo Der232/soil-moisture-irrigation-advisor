@@ -1,5 +1,6 @@
-const { getRecentEvents, logIrrigationEvent } = require('../models/irrigationModel');
+const { getRecentEvents } = require('../models/irrigationModel');
 const { getLatestReadings } = require('../models/readingModel');
+const { requestIrrigation } = require('../utils/irrigationAdvisor');
 
 async function recentEvents(req, res) {
   try {
@@ -15,17 +16,27 @@ async function manualWater(req, res) {
     const { zoneId } = req.body;
     if (!zoneId) return res.status(400).json({ error: 'zoneId is required' });
 
-    // Look up the most recent moisture reading for this zone, if any, to log alongside the event
+    // Look up the most recent moisture reading for this zone, if any, to use
+    // as the starting state for the measurable pump pulse.
     const latest = await getLatestReadings();
     const zoneReading = latest.find((r) => r.zone_id === Number(zoneId));
 
-    const id = await logIrrigationEvent({
+    const result = await requestIrrigation({
       zoneId,
       triggeredBy: 'manual',
+      mode: 'manual',
       moistureBefore: zoneReading ? zoneReading.moisture_percent : null,
+      durationSeconds: req.body.durationSeconds,
     });
 
-    res.status(201).json({ id, message: 'Manual watering logged' });
+    if (!result.approved) {
+      return res.status(409).json({
+        error: 'Manual watering blocked',
+        reason: result.reason,
+        irrigation: result,
+      });
+    }
+    res.status(201).json({ id: result.id, message: 'Manual watering approved', irrigation: result });
   } catch (err) {
     res.status(500).json({ error: 'Failed to log manual watering', details: err.message });
   }
