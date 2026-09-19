@@ -363,7 +363,17 @@ function attemptIrrigation(zone, moisturePercent, {
 
   const pulse = buildPulse(zone, moisturePercent, durationSeconds);
   if (pumpFailure) {
-    return { watered: false, blocked: true, reason: 'Pump failure simulated', pulse };
+    const result = { watered: false, blocked: true, reason: 'Pump failure simulated', pulse };
+    zone.lastEventTime = nowMs;
+    addEvent(zone, {
+      ...result,
+      triggeredBy: 'auto',
+      mode,
+      status: 'failed',
+      moistureBefore: moisturePercent,
+      timestamp: nowMs,
+    });
+    return result;
   }
   const reservation = reserveWater(reservoir, pulse.requestedVolumeL, nowMs);
   if (!reservation.approved) {
@@ -376,6 +386,7 @@ function attemptIrrigation(zone, moisturePercent, {
       timestamp: nowMs,
       ...pulse,
     });
+    zone.lastEventTime = nowMs;
     return { watered: false, blocked: true, reason: reservation.reason, pulse, reservation };
   }
 
@@ -504,7 +515,7 @@ export function tickSimulation(zones, {
     const advisorResult = attemptIrrigation(zone, moisturePercent, {
       nowMs: tickTime,
       reservoir,
-      mode: zone.operatingMode === 'manual' ? 'manual' : 'automatic',
+      mode: 'automatic',
       pumpFailure,
     });
     if (advisorResult.watered) {
